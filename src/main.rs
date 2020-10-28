@@ -4,13 +4,20 @@
 
 global_asm!(include_str!("boot.s"));
 
+mod zynq;
+use zynq::uart::uart_regs;
+
 #[no_mangle]
 pub extern "C" fn entry() -> ! { 
-    let uart = 0x10009000 as *mut u32;
-    unsafe {
-        *uart = 'a' as u32;
-    }
-    loop {}   
+    let uart = (0x10009000 - 0x30) as *mut uart_regs;
+    loop {
+        unsafe {
+            let c = (*uart).fifo.read();
+            if c != 0 {
+                (*uart).fifo.write(c);
+            }
+        }
+    }   
 }
 
 
