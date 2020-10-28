@@ -10,7 +10,7 @@ pub extern "C" fn entry() -> ! {
     unsafe {
         *uart = 'a' as u32;
     }
-    loop {}  
+    loop {}   
 }
 
 
