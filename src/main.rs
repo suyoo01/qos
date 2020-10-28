@@ -4,8 +4,19 @@
 
 global_asm!(include_str!("boot.s"));
 
+#[cfg(feature="qemu")]
+mod qemu;
+#[cfg(feature="qemu")]
+use qemu::*;
+
+
+#[cfg(feature="zynq")]
 mod zynq;
-use zynq::uart::uart_regs;
+#[cfg(feature="zynq")]
+use zynq::*;
+
+
+use uart::uart_regs;
 
 #[no_mangle]
 pub extern "C" fn entry() -> ! { 
