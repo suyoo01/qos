@@ -1,13 +1,14 @@
 MEMORY 
 {
-    RAM (rwx): ORIGIN = 0x60000000, LENGTH = 512M
+    OCM (rwx): ORIGIN = 0, LENGTH = 192K
+    RAM (rwx): ORIGIN = 0x100000, LENGTH = 512M
 }
 
-ENTRY(reset_handler)
+ENTRY(vector_table)
 SECTIONS
 {
     .text :
-    {
+    { 
         *(.text.boot)
         *(.text .text.*)
         *(.rodata .rodata.*)

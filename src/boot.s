@@ -1,4 +1,6 @@
 .section .text.boot
+.global vector_table
+vector_table:
     b reset_handler
     b . /* 0x4 Undefined Instruction */
     b . /* 0x8 Software Intrrupt */
@@ -11,6 +13,12 @@
 .section .text
 .global reset_handler
 reset_handler:
+/* TODO: get cpu id and sleep others*/
+    b setup
+1:
+    wfe
+    b 1
+setup:
 /* FIQ stack setup */
     msr cpsr_c, #0x11
     ldr r1, =_fiq_stack_start
@@ -48,5 +56,6 @@ bss_loop:
     cmp r1, r2
     strlt r0, [r1], #4
     blt bss_loop
+    mov r6, #1
 
-    b entry /* branch to rust */
+    bl entry /* branch to rust */

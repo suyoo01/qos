@@ -1,34 +1,20 @@
-#![no_std]
+#![no_std] 
 #![no_main]
 #![feature(global_asm)]
+ 
+global_asm!(include_str!("boot.s")); 
+  
 
-global_asm!(include_str!("boot.s"));
+mod uart;
 
-#[cfg(feature="qemu")]
-mod qemu;
-#[cfg(feature="qemu")]
-use qemu::*;
-
-
-#[cfg(feature="zynq")]
-mod zynq;
-#[cfg(feature="zynq")]
-use zynq::*;
-
-
-use uart::uart_regs;
 
 #[no_mangle]
 pub extern "C" fn entry() -> ! { 
-    let uart = (0x10009000 - 0x30) as *mut uart_regs;
-    loop {
-        unsafe {
-            let c = (*uart).fifo.read();
-            if c != 0 {
-                (*uart).fifo.write(c);
-            }
-        }
-    }   
+    unsafe {
+        uart::init();
+    }
+    uart::write('a' as u32);
+    loop {}
 }
 
 
