@@ -1,43 +1,55 @@
-MEMORY 
-{
-    OCM (rwx): ORIGIN = 0, LENGTH = 192K
-    RAM (rwx): ORIGIN = 0x100000, LENGTH = 512M
-}
+ENTRY(_start)
 
-ENTRY(vector_table)
 SECTIONS
 {
-    .text :
-    { 
-        *(.text.boot)
-        *(.text .text.*)
+    . = 0x100000;
+    .text.init : AT(0x100000)
+    {
+        *(.text.init)
+    }
+    . = ALIGN(16k);
+    _kern_page_table = .;
+    
+    
+    . = 0xc0108000;
+    .text 0xc0108000 : AT(0x108000)
+    {
+        *(.text .text.*)     
+    }
+    .rodata :
+    {
         *(.rodata .rodata.*)
-    } > RAM
+    }
+
     .data :
     {
         *(.data .data.*)
-        . = ALIGN(8);
-    } > RAM
+        . = ALIGN(4);
+    }
+
     .bss :
     {
-        _bss_start = .;
+        _bss_start = . ;
         *(.bss .bss.*)
-        . = ALIGN(8);
-        _bss_end = .;
-    } > RAM
+        . = ALIGN(4);
+        _bss_end = . ; 
+    }
+
+    . = ALIGN(4k);
+    PROVIDE(bootstack = .);
+    . = . + 4k;
+    PROVIDE(bootstack_top = .);
+
+
+    .shstrtab : 
+    {
+        *(.shstrtab)
+    }
+
+
 
     /DISCARD/ :
     {
         *(.ARM.*)
     }
-
-    _fiq_stack_start = ADDR(.bss) + SIZEOF(.bss);
-    _fiq_stack_end = _fiq_stack_start + 0x1000;
-
-    _irq_stack_start = _fiq_stack_end;
-    _irq_stack_end = _irq_stack_start + 0x1000;
-
-    _svc_stack_start = _irq_stack_end;
-    _svc_stack_end = _svc_stack_start + 0x1000;
-
 }

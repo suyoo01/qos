@@ -1,8 +1,7 @@
 [unstable]
 build-std = ["core", "compiler_builtins", "alloc"]
 
-[target.armv7a-none-eabi]
-runner = "qemu-system-arm -M vexpress-a9 -nographic -kernel"
+
 
 [build]
 target = "armv7a-none-eabi"
