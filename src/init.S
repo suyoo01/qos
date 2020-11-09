@@ -33,7 +33,10 @@ MCR p15, 0, r1, c2, c0, 2
 /* Setup kernel page table */
 mov r0, #0
 ldr r1, =_kern_pgdir
+/* Kernel page directory */
 add r2, r1, #(1<<14)
+/* MMIO page table */
+add r2, r1, #(1<<10)
 
 page_loop:
     cmp r1, r2
@@ -82,18 +85,21 @@ mcr p15, 0, r0, c7, c5, 0
 /* Invalidate Branch Predictor Array */
 mcr p15, 0, r0, c7, c5, 6
 /* Invalidate D-cache */
+MCR p15, 0, r0, c7, c14, 1
 
-
-/* Enable MMU */
+/* Read System Control Register */
 mrc p15, 0, r0, c1, c0, 0
+/* Enable MMU */
 orr r0, r0, #1
+/* Enable instruction cache*/
+orr r0, r0, #(1<<12)
+/* Enable branch prediction */
+orr r0, r0, #(1<<11)
+/* Enable data cache */
+orr r0, r0, #(1<<2)
+
 mcr p15, 0, r0, c1, c0, 0
 
-/* Enable I-cache and D-cache */
-/*movw r0, #0x1004
-mcr p15, 0, r0, c1, c0, 0
-dsb
-isb*/
 
 ldr sp, =_bootstack
 
