@@ -4,7 +4,9 @@
 #![feature(asm)]
 #![feature(rustc_private)]
 
+
 mod mem;
+mod uart;
 
 global_asm!(include_str!("init.S"));
 
@@ -14,9 +16,6 @@ pub extern "C" fn entry() -> ! {
     init();
     loop {}
 }
-    
-
-
 
 fn init() {
     unsafe {

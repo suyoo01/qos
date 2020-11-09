@@ -1,7 +1,8 @@
 .section .text.init
 .global _start
 _start:
-    msr cpsr_c, #0x13
+/* Switch to supervisor mode */
+    msr cpsr_c, #0x13 
     mov r0, #0
     mov r1, #0
     mov r2, #0
@@ -31,7 +32,7 @@ MCR p15, 0, r1, c2, c0, 2
 
 /* Setup kernel page table */
 mov r0, #0
-ldr r1, =_kern_page_table
+ldr r1, =_kern_pgdir
 add r2, r1, #(1<<14)
 
 page_loop:
@@ -39,9 +40,16 @@ page_loop:
     strlt r0, [r1], #4
     blt page_loop
 
-ldr r1, =_kern_page_table
+ldr r1, =_kern_pgdir
 /* Register page table */
 mcr p15, 0, r1, c2, c0, 0
+
+/* Set [1M, 2M) identity mapping */ 
+movw r2, #0x0c02
+movt r2, #0x0000
+str r2, [r1]
+
+
 
 /* Set [1M, 2M) identity mapping */ 
 movw r2, #0x0c02
@@ -78,7 +86,7 @@ mcr p15, 0, r0, c1, c0, 0
 dsb
 isb*/
 
-ldr sp, =bootstack_top
+ldr sp, =_bootstack
 
 
 

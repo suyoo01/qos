@@ -2,13 +2,13 @@ ENTRY(_start)
 
 SECTIONS
 {
-    . = 0x100000;
+    . = 1M;
     .text.init : AT(0x100000)
     {
         *(.text.init)
     }
     . = ALIGN(16k);
-    _kern_page_table = .;
+    _kern_pgdir = .;
     
     
     . = 0xc0108000;
@@ -36,9 +36,9 @@ SECTIONS
     }
 
     . = ALIGN(4k);
-    PROVIDE(bootstack = .);
-    . = . + 4k;
-    PROVIDE(bootstack_top = .);
+    . = . + 16k;
+    _bootstack = .;
+
 
 
     .shstrtab : 
