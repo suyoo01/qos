@@ -9,10 +9,13 @@ SECTIONS
     }
     . = ALIGN(16k);
     _kern_pgdir = .;
+    . = . + 16k;
+    _mmio_pgtable = .;
+    . = . + 1k;
     
     
-    . = 0xc0108000;
-    .text 0xc0108000 : AT(0x108000)
+    . = 0xc0109000;
+    .text 0xc0109000 : AT(0x109000)
     {
         *(.text .text.*)     
     }

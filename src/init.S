@@ -44,12 +44,6 @@ ldr r1, =_kern_pgdir
 /* Register page table */
 mcr p15, 0, r1, c2, c0, 0
 
-/* Set [1M, 2M) identity mapping */ 
-movw r2, #0x0c02
-movt r2, #0x0000
-str r2, [r1]
-
-
 
 /* Set [1M, 2M) identity mapping */ 
 movw r2, #0x0c02
@@ -60,6 +54,21 @@ str r2, [r1]
 /* Set [3G+1M, 3G+2M) -> [1M, 2M) offset mapping */
 add r1, r1, #(3072 * 4)
 str r2, [r1]
+
+
+/* Map MMIO region [4G-1M, 4G) */
+mov r0, #(1022 * 4)
+add r1, r1, r0
+ldr r2, =_mmio_pgtable
+add r2, r2, #1
+str r2, [r1]
+
+/* Magic number for UART MMIO */
+movw r1, #0x1416
+movt r1, #0xe000
+add r2, r2, #-1
+str r1, [r2]
+
 
 /* Make kernel domain 0 manager */
 mov r0, #3

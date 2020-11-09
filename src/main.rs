@@ -6,7 +6,7 @@
 
 
 mod mem;
-mod uart;
+mod io;
 
 global_asm!(include_str!("init.S"));
 
@@ -19,6 +19,7 @@ pub extern "C" fn entry() -> ! {
 
 fn init() {
     unsafe {
+        io::uart::uart_init();
         mem::mem_init();
     }
 }

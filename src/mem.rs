@@ -17,7 +17,7 @@ extern "C" {
 
 
 // Initial physial memory
-// 2G -----------> +------------------------------+
+// 1G -----------> +------------------------------+
 //                 |                              |
 //                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 //                 :              .               : 
@@ -26,6 +26,8 @@ extern "C" {
 //                 |          boot stack          |  16KB 
 //                 +------------------------------+
 //                 |  Kernel(text, data, bss)     |
+//                 +------------------------------+
+//                 |         MMIO_pgtable         |  1KB
 //                 +------------------------------+
 //                 |         kern_pgdir           |  16KB
 //                 +------------------------------+
@@ -45,7 +47,11 @@ extern "C" {
 //                 +------------------------------+
 //                 |  Kernel(text, data, bss)     |
 //                 +------------------------------+
-//                 |                              |  16KB
+//                 |         MMIO_pgtable         |  1KB
+//                 +------------------------------+
+//                 |         kern_pgdir           |  16KB
+// 3G + 1M ------> +------------------------------+
+//                 |                              |  
 //                 +------------------------------+
 //                 |            empty             |  1 MB
 // 1M -----------> +------------------------------+
@@ -118,7 +124,7 @@ pub unsafe fn mem_init() {
     let mem_size = 1024 * 1024; // memory in KB, 1024 MB = 1 GB */
     let mut next_free = Vaddr::new(boot_stack);
 
-    //let driver_addr_table = boot_alloc(&mut next_free, PGSIZE);
+    let driver_addr_table = boot_alloc(&mut next_free, PGSIZE);
     //memset(driver_addr_table.addr as *mut u8, 0, PGSIZE);
 
 
@@ -126,10 +132,10 @@ pub unsafe fn mem_init() {
     /*kern_pgdir[4095] = device_pg_table.paddr().addr | PTE_PT;
     let device_pg_table = &mut *(device_pg_table.addr as *mut [usize; 256]);
     device_pg_table[0] = 0xe0001000 | 0x01b;*/
-    *((kern_pgdir + 4095 * 4) as *mut u32) = 0xe0000000 | 0x806;
-    crate::uart::uart_init();
-    crate::uart::write('a' as u32);
 
+    //*((kern_pgdir + 4095 * 4) as *mut u32) = 0xe0011006;
+    *((kern_pgdir + 4095 * 4) as *mut u32) = device_pg_table.paddr().addr as u32 | 1;
+    *(device_pg_table.addr as *mut u32) = 0xe0001416;
     //boot_alloc(next_free, mem_size/PGSIZE * )
 }
 

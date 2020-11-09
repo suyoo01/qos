@@ -20,8 +20,8 @@ pub struct UartRegs {
     pub tx_trigger: RW<u32> // Transmitter FIFO Trigger level
 }
 
-static UART_PHYS:usize = 0xe0001000;
-static UART_BASE:usize = 0xfff01000;
+static _UART_PHYS: usize = 0xe0001000;
+static UART_BASE: usize = 0xfff00000 as usize;
 
 /// Initialize uart
 /// Reference: Zynq-7000 SOC TRM
@@ -57,3 +57,24 @@ pub fn write_str(s: &str) {
         write(c as u32);
     }
 }
+
+#[doc(hidden)]
+pub fn _print(args: core::fmt::Arguments) {
+    use core::fmt::Write;
+    let mut uart = Uart{};
+    uart.write_fmt(args).unwrap();
+}
+
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::io::uart::_print(format_args!($($arg)*)));
+}
+
+
+#[macro_export]
+macro_rules! println {
+    () => (print!("\n"));
+    ($($arg:tt)*) => (print!("{}\n", format_args!($($arg)*)));
+}
+
