@@ -35,6 +35,12 @@ impl Uart {
     }
 }
 
+pub fn read() -> u8 {
+    unsafe {
+        UART.lock().get().read()
+    }
+}
+
 
 #[repr(C)]
 pub struct UartRegs {
@@ -70,12 +76,23 @@ impl UartRegs {
         }    
     }
 
+    pub fn read(&mut self) -> u8 {
+        while self.is_rx_empty() {}
+        unsafe {
+            self.fifo.read() as u8
+        }
+    }
+
     pub fn is_tx_full(&self) -> bool {
         (self.sr.read() & (1<<4)) != 0
     }
 
     pub fn is_rx_full(&self) -> bool {
         (self.sr.read() & (1<<2)) != 0
+    }
+
+    pub fn is_rx_empty(&self) -> bool {
+        (self.sr.read() & (1<<1)) != 0
     }
 }
 

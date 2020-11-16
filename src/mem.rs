@@ -62,7 +62,7 @@ struct Frame {
 const NUM_PAGES:usize = (1<<30) / PAGE_SIZE;
 use super::paging::{KERN_BASE, PAGE_SIZE};
 
-static FRAME_ALLOCATOR: Mutex<usize> = Mutex::new(0);
+pub static mut FRAME_ALLOCATOR: Mutex<usize> = Mutex::new(0);
 
 #[repr(C)]
 struct FrameAllocator {
@@ -150,6 +150,7 @@ pub unsafe fn mem_init() {
     let next_free = boot_alloc(&mut end, 0);
     frame_allocator.next_free = va_to_fn(next_free);
     *FRAME_ALLOCATOR.lock() = frame_allocator as *mut _ as usize;
+
 }
 
 fn allocate_frame() -> Option<usize> {

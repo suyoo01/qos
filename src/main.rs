@@ -13,10 +13,14 @@ pub mod reg;
 pub mod util;
 pub mod interrupt;
 
+use mem::page_alloc;
+use paging::map_va_to_fn;
+
 #[no_mangle]
 pub extern "C" fn entry() -> ! {
     os::init();
-    panic!("Done");
+    os::test();
+    os::repl();
 }
 
 #[panic_handler]

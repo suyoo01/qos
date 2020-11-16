@@ -1,8 +1,6 @@
 #![no_std]
 #![feature(asm)]
 #![feature(rustc_private)]
-#![feature(const_raw_ptr_deref)]
-#![feature(const_mut_refs)]
 
 pub mod io;
 pub mod mem;
@@ -22,5 +20,43 @@ pub fn init() {
         println!("Init allocator");
         interrupt::interrupt_init();
         println!("Init Interrupt");
+    }
+}
+
+pub fn test() {
+    
+}
+
+pub fn repl() -> ! {
+    let mut buffer:[char; 1024] = ['\0';1024];
+    loop {
+        print!("> ");
+        get_line(&mut buffer);
+        eval(&buffer);
+        println!();
+    }
+}
+
+fn get_line(buffer: &mut [char; 1024]) {
+    let mut i = 0;
+    loop {
+        let c = io::uart::read() as char;
+        if c == '\r' {
+            buffer[i] = '\0';
+            println!("");
+            break;
+        }
+        buffer[i] = c;
+        i += 1;
+        print!("{}", c as char);
+    }
+}
+
+fn eval(buffer: &[char; 1024]) {
+    for &c in buffer {
+        if c == '\0' {
+            break;
+        }
+        print!("{}", c);
     }
 }
