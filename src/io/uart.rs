@@ -1,4 +1,40 @@
 use volatile_register::{RO, RW};
+use spin::Mutex;
+
+/// Initialize uart
+/// Reference: Zynq-7000 SOC TRM
+pub unsafe fn uart_init() {
+    let uart = UART.get_mut().get(); // Not thread safe
+    uart.cr.write(1 << 5); // Set no parity
+    uart.cr.write(1 << 3 | 1 << 5); // Disable rx and tx
+
+    //TODO: Baudrate configuration
+
+    uart.cr.write(1 << 1 | 1); // Soft reset rx and tx data path
+    uart.cr.write(1 << 2 | 1 << 4); // Enable rx and tx
+}
+
+#[doc(hidden)]
+pub fn _print(args: core::fmt::Arguments) {
+    use core::fmt::Write;
+    unsafe {
+        UART.lock().get().write_fmt(args).unwrap();
+    }
+}
+
+static mut UART:Mutex<Uart> = Mutex::new(Uart{});
+
+
+/// Wrapper for UartRegs
+pub struct Uart;
+impl Uart {
+    fn get(&self) -> &mut UartRegs {
+        unsafe {
+            &mut *(UART_BASE as *mut UartRegs)
+        }
+    }
+}
+
 
 #[repr(C)]
 pub struct UartRegs {
@@ -20,50 +56,40 @@ pub struct UartRegs {
     pub tx_trigger: RW<u32>,  // Transmitter FIFO Trigger level
 }
 
-static _UART_PHYS: usize = 0xe0001000;
-static UART_BASE: usize = 0xfff00000 as usize;
+impl UartRegs {
+    pub fn write(&mut self, c: u8) {
+        while self.is_tx_full() {} // Polling
+        unsafe {
+            self.fifo.write(c as u32);
+        }
+    }
 
-/// Initialize uart
-/// Reference: Zynq-7000 SOC TRM
-pub unsafe fn uart_init() {
-    let uart = &mut *(UART_BASE as *mut usize as *mut UartRegs);
-    uart.cr.write(1 << 5); // Set no parity
-    uart.cr.write(1 << 3 | 1 << 5); // Disable rx and tx
+    pub fn write_str(&mut self, s: &str) {
+        for c in s.bytes() {
+            self.write(c);
+        }    
+    }
 
-    //TODO: Baudrate configuration
+    pub fn is_tx_full(&self) -> bool {
+        (self.sr.read() & (1<<4)) != 0
+    }
 
-    uart.cr.write(1 << 1 | 1); // Soft reset rx and tx data path
-    uart.cr.write(1 << 2 | 1 << 4); // Enable rx and tx
+    pub fn is_rx_full(&self) -> bool {
+        (self.sr.read() & (1<<2)) != 0
+    }
 }
 
-pub struct Uart;
-
-impl core::fmt::Write for Uart {
+impl core::fmt::Write for UartRegs {
     fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
-        write_str(s);
+        self.write_str(s);
         Ok(())
     }
 }
 
-pub fn write(c: u32) {
-    unsafe {
-        let uart = &mut *(UART_BASE as *mut UartRegs);
-        uart.fifo.write(c);
-    }
-}
 
-pub fn write_str(s: &str) {
-    for c in s.bytes() {
-        write(c as u32);
-    }
-}
+const _UART_PHYS: usize = 0xe0001000;
+const UART_BASE: *mut UartRegs = 0xfff00000 as *mut UartRegs;
 
-#[doc(hidden)]
-pub fn _print(args: core::fmt::Arguments) {
-    use core::fmt::Write;
-    let mut uart = Uart {};
-    uart.write_fmt(args).unwrap();
-}
 
 #[macro_export]
 macro_rules! print {
@@ -72,6 +98,6 @@ macro_rules! print {
 
 #[macro_export]
 macro_rules! println {
-    () => (print!("\n"));
-    ($($arg:tt)*) => (print!("{}\n", format_args!($($arg)*)));
+    () => (print!("\r\n"));
+    ($($arg:tt)*) => (print!("{}\r\n", format_args!($($arg)*)));
 }

@@ -1,7 +1,7 @@
-KERNEL=target/armv7a-none-eabi/debug/os
+KERNEL=target/armv7a-none-eabi/release/os
 all:
-	cargo build
-	cargo objdump -- -D > target/kern.obj
+	cargo build --release
+	cargo objdump --release -- -D > target/kern.obj
 gdb: all
 	gdb-multiarch $(KERNEL)
 qemu: all
