@@ -2,25 +2,21 @@
 
 
 /// System control register
-pub struct Slctr<T> {
-    _phantom: core::marker::PhantomData<T>,
-}
-impl<T> Slctr<T> where 
-T: From<u32> + Into<u32> {
+pub struct Slctr;
+impl Slctr {
     #[inline(always)]
-    pub fn read() -> T{
-        let ret: u32;
+    pub fn read() -> usize {
+        let ret: usize;
         unsafe {
             asm!(
                 "MRC p15, 0, {ret}, c1, c0, 0",
                 ret = out(reg) ret
             );
         }
-        ret.into()
+        ret
     }
     #[inline(always)]
-    pub fn write(val: T) {
-        let val: u32 = val.into();
+    pub fn write(val: usize) {
         unsafe {
             asm!(
                 "MCR p15, {val}, c1, c0, 0",
@@ -33,7 +29,7 @@ T: From<u32> + Into<u32> {
 pub struct TTBR0;
 impl TTBR0 {
     #[inline(always)]
-    pub fn read() -> u32 {
+    pub fn read() -> usize {
         let mut val;
         unsafe {
             asm!(
@@ -44,7 +40,7 @@ impl TTBR0 {
         val
     }
     #[inline(always)]
-    pub fn write(val: u32) {
+    pub fn write(val: usize) {
         unsafe {
             asm!(
                 "MCR p15, 0, {val}, c2, c0, 0",
@@ -58,7 +54,7 @@ impl TTBR0 {
 pub struct MPIDR;
 impl MPIDR {
     #[inline(always)]
-    pub fn read() -> u32 {
+    pub fn read() -> usize {
         let mut val;
         unsafe {
             asm!(
@@ -69,7 +65,7 @@ impl MPIDR {
         val
     }
     #[inline(always)]
-    pub fn write(val: u32) {
+    pub fn write(val: usize) {
         unsafe {
             asm!(
                 "MCR p15, 0, {val}, c0, c0, 5",

@@ -1,4 +1,3 @@
-
 KERNEL=target/armv7a-none-eabi/release/os
 all:
 	cargo build --release

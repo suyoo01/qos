@@ -2,6 +2,7 @@ extern crate compiler_builtins;
 use compiler_builtins::mem::memset;
 use spin::Mutex;
 use crate::{println, print};
+use crate::env::{UserEnv, Env, ENVS};
 
 extern "C" {
     static _bootstack: usize;
@@ -62,7 +63,7 @@ struct Frame {
 const NUM_PAGES:usize = (1<<30) / PAGE_SIZE;
 use super::paging::{KERN_BASE, PAGE_SIZE};
 
-pub static mut FRAME_ALLOCATOR: Mutex<usize> = Mutex::new(0);
+pub static FRAME_ALLOCATOR: Mutex<usize> = Mutex::new(0);
 
 #[repr(C)]
 struct FrameAllocator {
@@ -138,6 +139,7 @@ pub unsafe fn mem_init() {
     let mut end = &_bootstack as *const usize as usize;
 
 
+    // ----- Init frame allocator -----
     let frame_allocator = &mut *(boot_alloc(&mut end,
     core::mem::size_of::<FrameAllocator>()) as *mut FrameAllocator);
 
@@ -147,10 +149,15 @@ pub unsafe fn mem_init() {
 
     frame_allocator.frames[NUM_PAGES-1].next = 0;
 
+    // ------ Init user env array ------
+    let envs = &mut *(boot_alloc(&mut end, 
+        core::mem::size_of::<UserEnv>()) as *mut UserEnv);
+    *ENVS.lock() = envs as *mut UserEnv as usize;
+
+    // Get first free memory
     let next_free = boot_alloc(&mut end, 0);
     frame_allocator.next_free = va_to_fn(next_free);
     *FRAME_ALLOCATOR.lock() = frame_allocator as *mut _ as usize;
-
 }
 
 fn allocate_frame() -> Option<usize> {

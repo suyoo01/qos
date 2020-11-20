@@ -3,7 +3,10 @@ ENTRY(_start)
 SECTIONS
 {
     . = 1M;
-    .text.init : AT(0x100000)
+    .text.vector : AT(0x100000) {
+        KEEP(*(.text.vector))
+    }
+    .text.init :
     {
         *(.text.init)
     }

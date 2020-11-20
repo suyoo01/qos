@@ -1,3 +1,15 @@
+.section .text.vector
+.global _vector_table
+_vector_table:
+b _start /* Reset */ 
+b _undefined /* Undefined Instruction */
+b _svc /* Supervisor Call */
+b _prefetch /* Prefetch Abort */
+b _data /* Data Abort */
+b . /* Not used */
+b _irq /* IRQ */
+b _fiq /* FIQ */
+
 .section .text.init
 .global _start
 _start:
@@ -18,10 +30,6 @@ _start:
     mov r12, #0
     mov r13, #0
     mov r14, #0
-    b setup
-wait:
-    wfe
-    b wait
 setup:
 
 /* Set TTBCR.N = 0 */
@@ -97,12 +105,60 @@ orr r0, r0, #(1<<12)
 orr r0, r0, #(1<<11)
 /* Enable data cache */
 orr r0, r0, #(1<<2)
-
+/* Write system control register */
 mcr p15, 0, r0, c1, c0, 0
+
+ldr r0, =_vector_table
+add r0, r0, #0xc0000000
+mcr p15, 0, r0, c12, c0, 0
 
 
 ldr sp, =_bootstack
 
-
-
 bl entry /* branch to rust */
+b .
+
+/* Interrupt entry */ 
+    
+_undefined:
+str lr, [sp], #-4
+bl pre_interrupt
+bl undefined
+ldr lr, [sp], #4
+b .
+_svc:
+str lr, [sp], #-4
+bl pre_interrupt
+
+bl svc
+ldr lr, [sp], #4
+b .
+_prefetch:
+str lr, [sp], #-4
+bl pre_interrupt
+bl prefetch_abort
+ldr lr, [sp], #4
+b .
+_data:
+str lr, [sp], #-4
+bl pre_interrupt
+bl data_abort
+ldr lr, [sp], #4
+b .
+_irq:
+str lr, [sp], #-4
+bl pre_interrupt
+bl irq
+ldr lr, [sp], #4
+b .
+_fiq:
+str lr, [sp], #-4
+bl pre_interrupt
+bl fiq
+ldr lr, [sp], #4
+b .
+
+pre_interrupt:
+stmdb sp, {r0-r12} /* push registers */
+mov r0, sp
+bx lr

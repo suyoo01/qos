@@ -1,15 +1,15 @@
 use volatile_register::{RO, RW};
-use spin::Mutex;
+use crate::{println, print};
 
 /// Initialize uart
 /// Reference: Zynq-7000 SOC TRM
 pub unsafe fn uart_init() {
-    let uart = UART.get_mut().get(); // Not thread safe
+    let uart = &mut *UART_BASE;
+    if uart.cr.read() & (1<<4) != 0 { return }
     uart.cr.write(1 << 5); // Set no parity
     uart.cr.write(1 << 3 | 1 << 5); // Disable rx and tx
 
     //TODO: Baudrate configuration
-
     uart.cr.write(1 << 1 | 1); // Soft reset rx and tx data path
     uart.cr.write(1 << 2 | 1 << 4); // Enable rx and tx
 }
@@ -18,11 +18,10 @@ pub unsafe fn uart_init() {
 pub fn _print(args: core::fmt::Arguments) {
     use core::fmt::Write;
     unsafe {
-        UART.lock().get().write_fmt(args).unwrap();
+        let uart = &mut *UART_BASE;
+        uart.write_fmt(args).unwrap();
     }
 }
-
-static mut UART:Mutex<Uart> = Mutex::new(Uart{});
 
 
 /// Wrapper for UartRegs
@@ -37,9 +36,12 @@ impl Uart {
 
 pub fn read() -> u8 {
     unsafe {
-        UART.lock().get().read()
+        let uart = &mut *UART_BASE;
+        uart.read()
     }
 }
+
+
 
 
 #[repr(C)]
@@ -55,7 +57,7 @@ pub struct UartRegs {
     pub rxwm: RW<u32>,        // Receiver FIFO Trigger level
     pub modem_cr: RW<u32>,    // Modem Control
     pub modem_st: RW<u32>,    // Modem Status
-    pub sr: RW<u32>,          // Channel status
+    pub sr: RO<u32>,          // Channel status
     pub fifo: RW<u32>,        // Transmit and recieve
     pub baudgen_div: RW<u32>, // Baud Rate Divder
     pub flow_delay: RW<u32>,  // Flow Control Delay
@@ -78,13 +80,15 @@ impl UartRegs {
 
     pub fn read(&mut self) -> u8 {
         while self.is_rx_empty() {}
-        unsafe {
-            self.fifo.read() as u8
-        }
+        self.fifo.read() as u8
     }
 
     pub fn is_tx_full(&self) -> bool {
         (self.sr.read() & (1<<4)) != 0
+    }
+
+    pub fn is_tx_empty(&self) -> bool {
+        (self.sr.read() & (1<<3)) != 0
     }
 
     pub fn is_rx_full(&self) -> bool {
