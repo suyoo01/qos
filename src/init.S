@@ -14,6 +14,8 @@ b _fiq /* FIQ */
 .global _start
 _start:
 /* Switch to supervisor mode */
+    msr cpsr_c, #0x17
+    ldr sp, =_bootstack
     msr cpsr_c, #0x13 
     mov r0, #0
     mov r1, #0
@@ -82,7 +84,7 @@ str r1, [r2]
 
 
 /* Make kernel domain 0 manager */
-mov r0, #3
+mov r0, #-1
 mcr p15, 0, r0, c3, c0, 0
 
 mov r0, #0
@@ -129,7 +131,6 @@ b .
 _svc:
 str lr, [sp], #-4
 bl pre_interrupt
-
 bl svc
 ldr lr, [sp], #4
 b .
@@ -140,6 +141,8 @@ bl prefetch_abort
 ldr lr, [sp], #4
 b .
 _data:
+mov r0, lr
+mov r2, lr
 str lr, [sp], #-4
 bl pre_interrupt
 bl data_abort
@@ -159,6 +162,6 @@ ldr lr, [sp], #4
 b .
 
 pre_interrupt:
-stmdb sp, {r0-r12} /* push registers */
+stmdb sp!, {r0-r15} /* push registers */
 mov r0, sp
 bx lr

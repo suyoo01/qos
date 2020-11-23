@@ -1,8 +1,53 @@
+//! Initial physial memory
+//!```
+//! 1G -----------> +------------------------------+
+//!                 |                              |
+//!                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//!                 :              .               :
+//!                 :              .               :
+//!                 +------------------------------+
+//!                 |          boot stack          |  16KB
+//!                 +------------------------------+
+//!                 |  Kernel(text, data, bss)     |
+//!                 +------------------------------+
+//!                 |         MMIO_pgtable         |  1KB
+//!                 +------------------------------+
+//!                 |         kern_pgdir           |  16KB
+//!                 +------------------------------+
+//!                 |         .text.init           |  16KB
+//! 1M -----------> +------------------------------+
+//!```
+//! Virtual memory map
+//!```
+//! 4G -----------> +------------------------------+
+//!                 |          MMIO region         | 1MB
+//1                 +------------------------------+
+//!                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//!                 :              .               :
+//!                 :              .               :
+//!                 +------------------------------+
+//!                 |          boot stack          |  4KB
+//!                 +------------------------------+
+//!                 |  Kernel(text, data, bss)     |
+//!                 +------------------------------+
+//!                 |         MMIO_pgtable         |  1KB
+//!                 +------------------------------+
+//!                 |         kern_pgdir           |  16KB
+//!                 +------------------------------+
+//!                 |         .text.init           |  16KB
+//! 3G + 1M ------> +------------------------------+
+//!                 |                              |
+//!                 +------------------------------+
+//!                 |            empty             |  1 MB
+//! 1M -----------> +------------------------------+
+//!```
+
+
+
 extern crate compiler_builtins;
-use compiler_builtins::mem::memset;
-use spin::Mutex;
+pub use compiler_builtins::mem::{memset, memcpy};
+use crate::env::{UserEnv, ENVS};
 use crate::{println, print};
-use crate::env::{UserEnv, Env, ENVS};
 
 extern "C" {
     static _bootstack: usize;
@@ -11,90 +56,18 @@ extern "C" {
     static _kern_pgdir: usize;
 }
 
-//pub static kern_pgdir:&mut [u32; 4096] = unsafe {_kern_pgdir};
-
-// Initial physial memory
-// 1G -----------> +------------------------------+
-//                 |                              |
-//                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//                 :              .               :
-//                 :              .               :
-//                 +------------------------------+
-//                 |          boot stack          |  16KB
-//                 +------------------------------+
-//                 |  Kernel(text, data, bss)     |
-//                 +------------------------------+
-//                 |         MMIO_pgtable         |  1KB
-//                 +------------------------------+
-//                 |         kern_pgdir           |  16KB
-//                 +------------------------------+
-//                 |         .text.init           |  16KB
-// 1M -----------> +------------------------------+
-
-// Virtual memory map
-// 4G -----------> +------------------------------+
-//                 |          MMIO region         | 1MB
-//                 +------------------------------+
-//                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//                 :              .               :
-//                 :              .               :
-//                 +------------------------------+
-//                 |          boot stack          |  4KB
-//                 +------------------------------+
-//                 |  Kernel(text, data, bss)     |
-//                 +------------------------------+
-//                 |         MMIO_pgtable         |  1KB
-//                 +------------------------------+
-//                 |         kern_pgdir           |  16KB
-//                 +------------------------------+
-//                 |         .text.init           |  16KB
-// 3G + 1M ------> +------------------------------+
-//                 |                              |
-//                 +------------------------------+
-//                 |            empty             |  1 MB
-// 1M -----------> +------------------------------+
-
-struct Frame {
-    next: usize,
-    ref_count: u32,
+#[derive(Clone, Copy, Debug)]
+pub struct Vaddr {
+    pub addr: usize
+}
+#[derive(Clone, Copy, Debug)]
+pub struct Paddr {
+    pub addr: usize
 }
 
-
-const NUM_PAGES:usize = (1<<30) / PAGE_SIZE;
 use super::paging::{KERN_BASE, PAGE_SIZE};
+static mut next: usize = 0;
 
-pub static FRAME_ALLOCATOR: Mutex<usize> = Mutex::new(0);
-
-#[repr(C)]
-struct FrameAllocator {
-    frames: [Frame; NUM_PAGES],
-    next_free: usize
-}
-
-impl FrameAllocator {
-    /// Allocate free frame
-    /// return frame number and increment ref_count
-    fn allocate_frame(&mut self) -> Option<usize> {
-        if self.next_free != 0 {
-            let free_frame_number = self.next_free;
-            self.frames[self.next_free].ref_count += 1;
-            self.next_free = self.frames[self.next_free].next;
-            Some(free_frame_number)
-        } else {
-            None
-        }
-    }
-
-    /// Deallocate frame
-    /// If ref count is 0, mark frame as free
-    fn deallocate_frame(&mut self, frame_number: usize) {
-        self.frames[frame_number].ref_count -= 1;
-        if self.frames[frame_number].ref_count == 0 {
-            self.frames[frame_number].next = self.next_free;
-            self.next_free = frame_number;
-        }
-    }
-}
 
 #[inline(always)]
 pub fn va_to_fn(va: usize) -> usize{
@@ -130,6 +103,7 @@ pub fn fn_to_pa(frame_number: usize) -> usize {
 /// Initialize bss and
 /// physical frame allocator.
 pub unsafe fn mem_init() {
+    use core::mem::size_of;
     // Init bss
     let bss_start = &_bss_start as *const usize as usize;
     let bss_end = &_bss_end as *const usize as usize;
@@ -138,59 +112,32 @@ pub unsafe fn mem_init() {
     // bootstack is end of kernel
     let mut end = &_bootstack as *const usize as usize;
 
-
-    // ----- Init frame allocator -----
-    let frame_allocator = &mut *(boot_alloc(&mut end,
-    core::mem::size_of::<FrameAllocator>()) as *mut FrameAllocator);
-
-    for (i,frame) in frame_allocator.frames.iter_mut().enumerate() {
-        frame.next = i+1;
-    }
-
-    frame_allocator.frames[NUM_PAGES-1].next = 0;
-
     // ------ Init user env array ------
     let envs = &mut *(boot_alloc(&mut end, 
-        core::mem::size_of::<UserEnv>()) as *mut UserEnv);
-    *ENVS.lock() = envs as *mut UserEnv as usize;
+        size_of::<UserEnv>()) as *mut UserEnv);        
+    ENVS = envs as *mut _ as usize;
 
     // Get first free memory
-    let next_free = boot_alloc(&mut end, 0);
-    frame_allocator.next_free = va_to_fn(next_free);
-    *FRAME_ALLOCATOR.lock() = frame_allocator as *mut _ as usize;
-}
-
-fn allocate_frame() -> Option<usize> {
-    unsafe {
-        let frame_allocator = &mut *(*FRAME_ALLOCATOR.lock() as *mut FrameAllocator);
-        frame_allocator.allocate_frame()
-    }
-}
-
-fn deallocate_frame(frame_number: usize) {
-    unsafe {
-        let frame_allocator = &mut *(*FRAME_ALLOCATOR.lock() as *mut FrameAllocator);
-        frame_allocator.deallocate_frame(frame_number);
-    }
+   next = va_to_fn(boot_alloc(&mut end, 0));
 }
 
 /// Allocate a physical frame
 /// Panic if allocation failed
-pub fn page_alloc(alloc_flag: u32) -> usize {
-    let frame_number = allocate_frame().unwrap();
-    if alloc_flag & 1 != 0 {
-        let va = fn_to_va(frame_number);
-        unsafe {
-            memset(va as *mut u8, 0, PAGE_SIZE);
+pub fn alloc_frame(num_frames: usize, flag: u32) -> usize {
+    let ret;
+    unsafe {
+        ret = next;
+        next += num_frames;
+        if flag & 1 != 0 {   
+            memset(fn_to_va(ret) as *mut u8, 0, num_frames*PAGE_SIZE);
         }
     }
-    frame_number
+    ret
 }
 
-pub fn page_free(frame_number: usize) {
-    deallocate_frame(frame_number);
+/// Do nothing
+pub fn free_frame(frame_number: usize) {
 }
-
 
 /// Allocator for initial setup
 /// allocate static kernel memory

@@ -1,5 +1,4 @@
 use volatile_register::{RO, RW};
-use crate::{println, print};
 
 /// Initialize uart
 /// Reference: Zynq-7000 SOC TRM
@@ -34,6 +33,13 @@ impl Uart {
     }
 }
 
+pub fn write(c: u8) {
+    unsafe {
+        let uart = &mut *UART_BASE;
+        uart.write(c);
+    }
+}
+
 pub fn read() -> u8 {
     unsafe {
         let uart = &mut *UART_BASE;
@@ -50,7 +56,7 @@ pub struct UartRegs {
     pub mr: RW<u32>,          // Mode Register
     pub ier: RW<u32>,         // Interrupt Enable
     pub idr: RW<u32>,         // Interrupt Disable
-    pub imr: RO<u32>,         // Interrupt Mask
+    pub imr: RO<u32>,         // Interrupt Mask 
     pub isr: RW<u32>,         // Channel Interrupt Status
     pub baudgen: RW<u32>,     // Baud Rate
     pub rx_tout: RW<u32>,     // Receiver Timeout

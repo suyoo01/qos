@@ -1,7 +1,12 @@
-KERNEL=target/armv7a-none-eabi/release/os
+ifeq ($(DEBUG), 1)
+KERNEL=target/armv7a-none-eabi/debug/kernel
+else
+KERNEL=target/armv7a-none-eabi/release/kernel
+CARGOFLAG=--release
+endif
 all:
-	cargo build --release
-	cargo objdump --release -- -D > target/kern.obj
+	cargo build $(CARGOFLAG)
+	cargo objdump $(CARGOFLAG) -- -D > target/kern.obj
 gdb: all
 	gdb-multiarch $(KERNEL)
 qemu: all
