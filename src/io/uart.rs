@@ -1,5 +1,7 @@
 use volatile_register::{RO, RW};
 
+use crate::io::slcr;
+
 /// Initialize uart
 /// Reference: Zynq-7000 SOC TRM
 pub unsafe fn uart_init() {
